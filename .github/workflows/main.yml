@@ -27,7 +27,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get the list of changed files via GitHub API
+      - name: Get the changed files
         id: changes
         run: |
           echo "Fetching changed files from GitHub API..."
@@ -43,7 +43,7 @@ jobs:
           echo "Changed files:"
           cat changes.txt
 
-      - name: Fail if any file other than pixel_update.json is added/removed/modified
+      - name: Any Add/Remove/Update other than pixel_update.json
         run: |
           CHANGED_FILES=$(cat changes.txt)
           TOTAL_FILES=$(echo "$CHANGED_FILES" | wc -l)
