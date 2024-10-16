@@ -1,11 +1,11 @@
 import sys
 
-print(sys.argv[1:])
+print(sys.argv)
 
-with open("pixel_update.json",'r+') as f:
+with open(sys.argv[0],'r+') as f:
     print(f.read())
     f.seek(0)
     with open("log.txt","w") as lo:
         for i in f.readlines():
             lo.write(i)
-
+exit(-1)
