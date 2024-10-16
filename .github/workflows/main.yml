@@ -1,10 +1,10 @@
 name: PR check
 
 on:
-    pull_request:
-      types:
-        - opened
-        - edited
+  pull_request:
+    types:
+      - opened
+      - edited
 
 jobs:
   Audit-Pull-Request:
@@ -24,27 +24,44 @@ jobs:
             if (labels.filter(l => requiredLabels.includes(l.name)).length === 0) {
               throw new Error(`Required labels: ${requiredLabels.join(', ')}`);
             }
+
   Audit-the-json-content:
     runs-on: ubuntu-latest
     needs: Audit-Pull-Request
 
     steps:
-      - name: checkout the pr 
+      - name: Checkout the PR
         uses: actions/checkout@v2
         with: 
           fetch-depth: 0
 
-      - name: Show changed files
+      - name: Fetch base branch for comparison
         run: |
           git fetch origin ${{ github.event.pull_request.base.ref }}
-          git diff --name-only origin/${{ github.event.pull_request.base.ref }}...${{ github.sha }}
 
-      - name: Run Python validation on changed files
+      - name: Get the list of changed files
+        id: changes
         run: |
-          # Here we are assuming that the PR contains a JSON file named 'pixel_update.json'
-          if git diff --name-only origin/${{ github.event.pull_request.base.ref }}...${{ github.sha }} | grep -q 'pixel_update.json'; then
-            echo "pixel_update.json found, validating..."
-            python validate_pixel_update.py pixel_update.json
+          git diff --name-status origin/${{ github.event.pull_request.base.ref }}...${{ github.sha }} > changes.txt
+          cat changes.txt
+
+      - name: Fail if any file other than pixel_update.json is added/removed/modified
+        run: |
+          CHANGED_FILES=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }}...${{ github.sha }})
+          TOTAL_FILES=$(echo "$CHANGED_FILES" | wc -l)
+          
+          # Check if only 'pixel_update.json' was modified
+          if [[ "$TOTAL_FILES" -eq 1 ]] && [[ "$CHANGED_FILES" == "pixel_update.json" ]]; then
+            echo "Only pixel_update.json was modified. Proceeding with validation..."
           else
-            echo "No pixel_update.json found, skipping validation."
+            echo "Error: Changes found in files other than pixel_update.json. Failing the PR."
+            exit 1
           fi
+
+      - name: Save the content of changed file (pixel_update.json)
+        run: |
+          cat pixel_update.json > changed_file_content.txt
+
+      - name: Pass the diff and file content to Python validation
+        run: |
+          python validate_pixel_update.py changes.txt changed_file_content.txt
