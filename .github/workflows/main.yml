@@ -11,20 +11,35 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout the PR
-        uses: hmarr/auto-approve-action@v4.0.0
-        with: 
-          fetch-depth: 0
+      - name: Check if PR is from a fork
+        id: pr_source
+        run: |
+          if [[ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]]; then
+            echo "PR is from a fork."
+            echo "::set-output name=is_fork::true"
+          else
+            echo "PR is not from a fork."
+            echo "::set-output name=is_fork::false"
+          fi
 
-      - name: Fetch base branch for comparison
+      - name: Checkout the PR
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          lfs: ${{ steps.pr_source.outputs.is_fork != 'true' }}
+          submodules: ${{ steps.pr_source.outputs.is_fork != 'true' }}
+
+      - name: Fetch base branch for comparison (skip if from fork)
+        if: steps.pr_source.outputs.is_fork != 'true'
         run: |
           git fetch origin ${{ github.event.pull_request.base.ref }}
 
-      - name: Get the list of changed files
+      - name: Get the list of changed files (skip if from fork)
         id: changes
         run: |
           git diff --name-status origin/${{ github.event.pull_request.base.ref }}...${{ github.sha }} > changes.txt
           cat changes.txt
+        if: steps.pr_source.outputs.is_fork != 'true'
 
       - name: Fail if any file other than pixel_update.json is added/removed/modified
         run: |
@@ -38,6 +53,7 @@ jobs:
             echo "Error: Changes found in files other than pixel_update.json. Failing the PR."
             exit 1
           fi
+        if: steps.pr_source.outputs.is_fork != 'true'
 
       - name: Save the content of changed file (pixel_update.json)
         run: |
