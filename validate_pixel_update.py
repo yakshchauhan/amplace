@@ -17,10 +17,10 @@ def validate_dict(item):
     if set(item.keys()) != required_keys:
         return False, f"Item keys do not match the required keys {required_keys}."
 
-    if not isinstance(item['x'], int) or not (0 <= item['x'] <= 150):
+    if not isinstance(item['x'], int) or not (0 <= int(item['x']) <= 150):
         return False, "Invalid 'x' value. Must be an integer between 0 and 150."
 
-    if not isinstance(item['y'], int) or not (0 <= item['y'] <= 60):
+    if not isinstance(item['y'], int) or not (0 <= int(item['y']) <= 60):
         return False, "Invalid 'y' value. Must be an integer between 0 and 60."
 
     if not is_valid_rgb(item['rgb']):
