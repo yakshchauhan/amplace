@@ -27,12 +27,20 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get the list of changed files from GitHub API
+      - name: Get the list of changed files via GitHub API
         id: changes
         run: |
           echo "Fetching changed files from GitHub API..."
-          CHANGED_FILES=$(jq -r '.pull_request | .changed_files[] | .filename' <<< "${{ toJSON(github.event) }}")
-          echo "$CHANGED_FILES" > changes.txt
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          REPO=${{ github.repository }}
+          echo "Fetching files changed in PR #$PR_NUMBER"
+          
+          # Call the GitHub API to get the list of changed files
+          curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+               "https://api.github.com/repos/${REPO}/pulls/${PR_NUMBER}/files" \
+               | jq -r '.[].filename' > changes.txt
+
+          echo "Changed files:"
           cat changes.txt
 
       - name: Fail if any file other than pixel_update.json is added/removed/modified
