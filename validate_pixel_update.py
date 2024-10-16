@@ -12,7 +12,7 @@ def is_valid_rgb(value):
 def validate_dict(item):
     if not isinstance(item, dict):
         return False, "Item is not a dictionary."
-
+    print(item)
     required_keys = {"x", "y", "rgb"}
     if set(item.keys()) != required_keys:
         return False, f"Item keys do not match the required keys {required_keys}."
