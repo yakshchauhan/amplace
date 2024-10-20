@@ -1,9 +1,11 @@
 import sys
 import json
 import re
+import requests  
 
 diff_file = sys.argv[1]
 content_file = sys.argv[2]
+github_user = sys.argv[3]  
 
 def is_valid_rgb(value):
     hex_pattern = r'^#[0-9A-Fa-f]{6}$'
@@ -17,10 +19,10 @@ def validate_dict(item):
     if set(item.keys()) != required_keys:
         return False, f"Item keys do not match the required keys {required_keys}."
 
-    if not item['x'].isdigit() or not (0 <= int(item['x']) <= 150):
+    if not str(item['x']).isdigit() or not (0 <= int(item['x']) <= 150):
         return False, "Invalid 'x' value. Must be an integer between 0 and 150."
 
-    if not item['y'].isdigit() or not (0 <= int(item['y']) <= 60):
+    if not str(item['y']).isdigit() or not (0 <= int(item['y']) <= 60):
         return False, "Invalid 'y' value. Must be an integer between 0 and 60."
 
     if not is_valid_rgb(item['rgb']):
@@ -62,3 +64,25 @@ for i, item in enumerate(data):
         sys.exit(1)
 
 print("Validation successful: The pixel_update.json file is correctly formatted.")
+
+pixel_list = []
+for item in data:
+    pixel_list.append({
+        "X": int(item['x']),
+        "Y": int(item['y']),
+        "hex-code": item['rgb']
+    })
+
+post_data = {
+    "user": github_user,  
+    "pixel_list": pixel_list
+}
+
+try:
+    response = requests.post('https://amplace.co/api/update_pixel', json=post_data)
+    response.raise_for_status()  
+    print("POST request successful.")
+    print(f"Response: {response.json()}")
+except requests.exceptions.RequestException as e:
+    print(f"Error: Failed to send POST request. {str(e)}")
+    sys.exit(1)
