@@ -60,6 +60,13 @@ jobs:
         run: |
           cat pixel_update.json > changed_file_content.txt
 
+      - name: Get the PR author username
+        id: pr_user
+        run: |
+          PR_USER=${{ github.event.pull_request.user.login }}
+          echo "The PR was created by $PR_USER"
+          echo "::set-output name=pr_user::$PR_USER"
+
       - name: Pass the diff and file content to Python validation
         run: |
-          python validate_pixel_update.py changes.txt changed_file_content.txt
+          python validate_pixel_update.py changes.txt changed_file_content.txt ${{ steps.pr_user.outputs.pr_user }}
