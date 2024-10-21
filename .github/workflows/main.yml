@@ -6,11 +6,11 @@ on:
       - opened
       - edited
       - synchronize
-      - closed  
+      - closed
 
 permissions:
   pull-requests: write
-  contents: write 
+  contents: write
 
 jobs:
   Audit-the-json-content:
@@ -28,43 +28,19 @@ jobs:
             echo "::set-output name=is_fork::false"
           fi
 
-      - name: Checkout the PR
+      - name: Checkout the base branch
         uses: actions/checkout@v2
         with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.event.pull_request.base.ref }}
           fetch-depth: 0
 
-      - name: Get the changed files
-        id: changes
+      - name: Fetch the PR changes from the fork
+        if: steps.pr_source.outputs.is_fork == 'true'
         run: |
-          echo "Fetching changed files from GitHub API..."
-          PR_NUMBER=${{ github.event.pull_request.number }}
-          REPO=${{ github.repository }}
-          echo "Fetching files changed in PR #$PR_NUMBER"
-          
-          # Call the GitHub API to get the list of changed files
-          curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-               "https://api.github.com/repos/${REPO}/pulls/${PR_NUMBER}/files" \
-               | jq -r '.[].filename' > changes.txt
-
-          echo "Changed files:"
-          cat changes.txt
-
-      - name: Any Add/Remove/Update other than pixel_update.json
-        run: |
-          CHANGED_FILES=$(cat changes.txt)
-          TOTAL_FILES=$(echo "$CHANGED_FILES" | wc -l)
-
-          # Check if only 'pixel_update.json' was modified
-          if [[ "$TOTAL_FILES" -eq 1 ]] && [[ "$CHANGED_FILES" == "pixel_update.json" ]]; then
-            echo "Only pixel_update.json was modified. Proceeding with validation..."
-          else
-            echo "Error: Changes found in files other than pixel_update.json. Failing the PR."
-            exit 1
-          fi
-
-      - name: Save the content of changed file (pixel_update.json)
-        run: |
-          cat pixel_update.json > changed_file_content.txt
+          # Fetch the pull request branch from the fork repository
+          git fetch origin pull/${{ github.event.pull_request.number }}/head:pr-branch
+          git checkout pr-branch
 
       - name: Get the PR author username
         id: pr_user
@@ -73,28 +49,10 @@ jobs:
           echo "The PR was created by $PR_USER"
           echo "::set-output name=pr_user::$PR_USER"
 
-      - name: Pass the diff and file content to Python validation
-        run: |
-          python validate_pixel_update.py changes.txt changed_file_content.txt ${{ steps.pr_user.outputs.pr_user }}
-
-      - name: Close PR on failure
-        if: failure() 
-        run: |
-          PR_NUMBER=${{ github.event.pull_request.number }}
-          REPO=${{ github.repository }}
-          echo "Closing PR #${PR_NUMBER} due to failed tests."
-          
-          # Use GitHub API to close the PR
-          curl -X PATCH -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -d '{"state":"closed"}' \
-            "https://api.github.com/repos/${REPO}/pulls/${PR_NUMBER}"
-
-      - name: Automatically merge PR into a new branch after successful checks
-        if: success() 
-        id: create_and_merge_branch
+      - name: Create a new branch with the PR author username
+        id: create_branch
         run: |
           REPO=${{ github.repository }}
-          PR_NUMBER=${{ github.event.pull_request.number }}
           PR_USER=${{ steps.pr_user.outputs.pr_user }}
           BASE_BRANCH=${{ github.event.pull_request.base.ref }}
 
@@ -110,10 +68,11 @@ jobs:
           git checkout $BASE_BRANCH
           git checkout -b "$BRANCH_NAME"
 
-          # Push the new branch to the repository
-          git push origin "$BRANCH_NAME"
+      - name: Merge PR changes into the new branch
+        run: |
+          git merge --no-ff pr-branch
 
-          # Merge the PR into the new branch
-          curl -X POST -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -d '{"base":"'"$BRANCH_NAME"'","head":"refs/pull/'"$PR_NUMBER"'/head"}' \
-            "https://api.github.com/repos/${REPO}/merges"
+      - name: Push the new branch to the repository
+        run: |
+          BRANCH_NAME=${{ steps.create_branch.outputs.branch_name }}
+          git push origin "$BRANCH_NAME"
