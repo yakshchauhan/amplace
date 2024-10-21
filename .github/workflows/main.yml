@@ -16,7 +16,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Check if the PR is from a fork
       - name: Check if PR is from a fork
         id: pr_source
         run: |
@@ -28,7 +27,6 @@ jobs:
             echo "::set-output name=is_fork::false"
           fi
 
-      # Step 2: Checkout base branch (target branch)
       - name: Checkout base branch
         uses: actions/checkout@v2
         with:
@@ -36,7 +34,6 @@ jobs:
           ref: ${{ github.event.pull_request.base.ref }}
           fetch-depth: 0
 
-      # Step 3: Get the list of changed files using GitHub API
       - name: Get the changed files
         id: changes
         run: |
@@ -53,7 +50,6 @@ jobs:
           echo "Changed files:"
           cat changes.txt
 
-      # Step 4: Validate that only 'pixel_update.json' was modified
       - name: Validate pixel_update.json
         run: |
           CHANGED_FILES=$(cat changes.txt)
@@ -67,12 +63,10 @@ jobs:
             exit 1
           fi
 
-      # Step 5: Save the content of changed file (pixel_update.json)
       - name: Save the content of changed file
         run: |
           cat pixel_update.json > changed_file_content.txt
 
-      # Step 6: Get the PR author username
       - name: Get the PR author username
         id: pr_user
         run: |
@@ -80,12 +74,10 @@ jobs:
           echo "The PR was created by $PR_USER"
           echo "::set-output name=pr_user::$PR_USER"
 
-      # Step 7: Perform Python validation
       - name: Pass the diff and file content to Python validation
         run: |
           python validate_pixel_update.py changes.txt changed_file_content.txt ${{ steps.pr_user.outputs.pr_user }}
 
-      # Step 8: Create a new branch and merge the PR
       - name: Create a new branch and merge the PR
         id: create_branch_and_merge
         run: |
@@ -115,7 +107,6 @@ jobs:
           # Merge the PR branch into the new branch
           git merge --no-ff pr-branch
 
-      # Step 9: Push the new branch to the repository
       - name: Push the new branch to the repository
         run: |
           BRANCH_NAME=${{ steps.create_branch_and_merge.outputs.branch_name }}
