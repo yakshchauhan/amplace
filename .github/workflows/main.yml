@@ -73,7 +73,9 @@ jobs:
           # Merge the PR's HEAD commit into the new branch
           git merge --no-ff $PR_HEAD
 
-      - name: Push the new branch to the repository
+      - name: Push the new branch to the repository using the PAT
         run: |
           BRANCH_NAME=${{ steps.create_branch.outputs.branch_name }}
-          git push origin "$BRANCH_NAME"
+          git push https://$PAT_TOKEN@github.com/${{ github.repository }} "$BRANCH_NAME"
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }} # Reference the PAT token secret here
