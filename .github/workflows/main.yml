@@ -6,7 +6,6 @@ on:
       - opened
       - edited
       - synchronize
-      - closed
 
 permissions:
   pull-requests: write
@@ -35,13 +34,6 @@ jobs:
           ref: ${{ github.event.pull_request.base.ref }}
           fetch-depth: 0
 
-      - name: Fetch the PR changes from the fork
-        if: steps.pr_source.outputs.is_fork == 'true'
-        run: |
-          # Fetch the pull request branch from the fork repository
-          git fetch origin pull/${{ github.event.pull_request.number }}/head:pr-branch
-          git checkout pr-branch
-
       - name: Get the PR author username
         id: pr_user
         run: |
@@ -63,14 +55,18 @@ jobs:
             COUNT=$((COUNT+1))
             BRANCH_NAME="${PR_USER}${COUNT}"
           done
+          echo "::set-output name=branch_name::$BRANCH_NAME"
 
           # Create a new branch from the base branch
-          git checkout $BASE_BRANCH
           git checkout -b "$BRANCH_NAME"
 
-      - name: Merge PR changes into the new branch
+      - name: Merge the PR's changes into the new branch
         run: |
-          git merge --no-ff pr-branch
+          PR_HEAD=${{ github.event.pull_request.head.sha }}
+          BRANCH_NAME=${{ steps.create_branch.outputs.branch_name }}
+
+          # Merge the PR's HEAD commit into the new branch
+          git merge --no-ff $PR_HEAD
 
       - name: Push the new branch to the repository
         run: |
