@@ -58,6 +58,7 @@ jobs:
           else
             echo "Error: Changes found in files other than pixel_update.json. Failing the PR."
             exit 1
+          fi
 
       - name: Save the content of changed file (pixel_update.json)
         run: |
@@ -73,7 +74,7 @@ jobs:
       - name: Pass the diff and file content to Python validation
         run: |
           python validate_pixel_update.py changes.txt changed_file_content.txt ${{ steps.pr_user.outputs.pr_user }}
-
+      
       - name: Close PR on failure
         if: failure() # This will only run if any of the previous steps fail
         run: |
@@ -85,3 +86,4 @@ jobs:
           curl -X PATCH -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -d '{"state":"closed"}' \
             "https://api.github.com/repos/${REPO}/pulls/${PR_NUMBER}"
+            
