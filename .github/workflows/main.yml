@@ -1,7 +1,7 @@
-name: PR Check and Merge
+name: Validate/Merge
 
 on:
-  pull_request:
+  pull_request_target:
     types:
       - opened
       - edited
@@ -12,8 +12,10 @@ permissions:
   contents: write
 
 jobs:
-  audit-and-merge:
+  audit:
     runs-on: ubuntu-latest
+    outputs:
+      PR_AUTHOR: ${{ steps.pr_user.outputs.PR_AUTHOR }}
 
     steps:
       - name: Check if PR is from a fork
@@ -28,10 +30,11 @@ jobs:
           fi
 
       - name: Checkout base branch
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
-          repository: ${{ github.repository }}
-          ref: ${{ github.event.pull_request.base.ref }}
+          ref: ${{ github.event.pull_request.head.ref }}
+          # Fetch the forked repository where the pull request originates
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
           fetch-depth: 0
 
       - name: Get the changed files
@@ -70,44 +73,39 @@ jobs:
       - name: Get the PR author username
         id: pr_user
         run: |
-          PR_USER=${{ github.event.pull_request.user.login }}
-          echo "The PR was created by $PR_USER"
-          echo "::set-output name=pr_user::$PR_USER"
+          branch_name=${{ github.event.pull_request.user.login }}
+          echo "PR_AUTHOR=$branch_name" >> $GITHUB_OUTPUT
+          echo "The PR was created by $branch_name"
 
-      - name: Pass the diff and file content to Python validation
+      - name: Pass the diff and file content to Python validation and send request
         run: |
-          python validate_pixel_update.py changes.txt changed_file_content.txt ${{ steps.pr_user.outputs.pr_user }}
+          python validate_pixel_update.py changes.txt changed_file_content.txt ${{ github.event.pull_request.user.login }}
 
-      - name: Create a new branch and merge the PR
-        id: create_branch_and_merge
+  auto_merge_pr:
+    needs: audit
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR_AUTHOR: ${{ needs.audit.outputs.PR_AUTHOR }}
+      PR_NUMBER: ${{ github.event.number }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Create branch if not exists
         run: |
-          PR_USER=${{ steps.pr_user.outputs.pr_user }}
-          BRANCH_NAME=$PR_USER
-          COUNT=1
+          branch_name=$PR_AUTHOR
+          if git ls-remote --heads origin $branch_name | grep -sw $branch_name; then
+            echo "Branch $branch_name already exists."
+          else
+            echo "Branch $branch_name does not exist. Creating new branch..."
+            git checkout -b $branch_name
+            git push --set-upstream origin $branch_name
+          fi
 
-          # Check if a branch with the username already exists
-          while git ls-remote --exit-code --heads origin "refs/heads/$BRANCH_NAME"; do
-            COUNT=$((COUNT+1))
-            BRANCH_NAME="${PR_USER}${COUNT}"
-          done
+      - name: Change base branch of PR
+        run: gh pr edit $PR_NUMBER --base $PR_AUTHOR
 
-          echo "::set-output name=branch_name::$BRANCH_NAME"
-          
-          # Create the new branch from the base branch
-          git checkout -b "$BRANCH_NAME"
-          
-          # Fetch the PR branch from the fork
-          git remote add fork https://github.com/${{ github.event.pull_request.head.repo.full_name }}.git
-          git fetch fork ${{ github.event.pull_request.head.ref }}:pr-branch
-
-          # Set committer identity to avoid "unknown identity" error
-          git config user.name "GitHub Action"
-          git config user.email "action@github.com"
-          
-          # Merge the PR branch into the new branch
-          git merge --no-ff pr-branch
-
-      - name: Push the new branch to the repository
-        run: |
-          BRANCH_NAME=${{ steps.create_branch_and_merge.outputs.branch_name }}
-          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} "$BRANCH_NAME"
+      - name: Merge PR
+        run: gh pr merge $PR_NUMBER --merge
