@@ -1,27 +1,15 @@
 [
-  {
-    "x": "1",
-    "y": "1",
-    "rgb": "#ffffff"
-  },
-  {
-    "x": "2",
-    "y": "2",
-    "rgb": "#0000ff"
-  },
-  {
-    "x": "3",
-    "y": "3",
-    "rgb": "#4aa926"
-  },
-  {
-    "x": "4",
-    "y": "4",
-    "rgb": "#ff0000"
-  },
-  {
-    "x": "5",
-    "y": "5",
-    "rgb": "#ff1d8e"
-  }
-]
+  { "x": "1", "y": "1", "rgb": "#ffffff" },
+  { "x": "2", "y": "2", "rgb": "#0000ff" },
+  { "x": "3", "y": "3", "rgb": "#4aa926" },
+  { "x": "4", "y": "4", "rgb": "#ff0000" },
+  { "x": "5", "y": "5", "rgb": "#ff1d8e" }
+];
+
+// Using a for loop to set the entire screen to black
+for (let i = 0; i < pixels.length; i++) {
+  pixels[i].rgb = "#000000";
+}
+
+console.log(pixels);
+
