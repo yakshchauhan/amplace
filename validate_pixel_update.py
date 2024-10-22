@@ -6,6 +6,7 @@ import requests
 diff_file = sys.argv[1]
 content_file = sys.argv[2]
 github_user = sys.argv[3]  
+api_url = sys.argv[4]
 
 def is_valid_rgb(value):
     hex_pattern = r'^#[0-9A-Fa-f]{6}$'
@@ -79,7 +80,7 @@ post_data = {
 }
 
 try:
-    response = requests.post('https://amplace.co/api/update_pixel', json=post_data)
+    response = requests.post(api_url, json=post_data)
     response.raise_for_status()  
     print("POST request successful.")
     print(f"Response: {response.json()}")
