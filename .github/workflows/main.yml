@@ -1,18 +1,21 @@
-name: PR check
+name: Validate/Merge
 
 on:
-  pull_request:
+  pull_request_target:
     types:
       - opened
       - edited
       - synchronize
+
 permissions:
   pull-requests: write
-
+  contents: write
 
 jobs:
-  Audit-the-json-content:
+  audit:
     runs-on: ubuntu-latest
+    outputs:
+      PR_AUTHOR: ${{ steps.pr_user.outputs.PR_AUTHOR }}
 
     steps:
       - name: Check if PR is from a fork
@@ -26,9 +29,12 @@ jobs:
             echo "::set-output name=is_fork::false"
           fi
 
-      - name: Checkout the PR
-        uses: actions/checkout@v2
+      - name: Checkout base branch
+        uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          # Fetch the forked repository where the pull request originates
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
           fetch-depth: 0
 
       - name: Get the changed files
@@ -47,7 +53,7 @@ jobs:
           echo "Changed files:"
           cat changes.txt
 
-      - name: Any Add/Remove/Update other than pixel_update.json
+      - name: Validate pixel_update.json
         run: |
           CHANGED_FILES=$(cat changes.txt)
           TOTAL_FILES=$(echo "$CHANGED_FILES" | wc -l)
@@ -60,30 +66,52 @@ jobs:
             exit 1
           fi
 
-      - name: Save the content of changed file (pixel_update.json)
+      - name: Save the content of changed file
         run: |
           cat pixel_update.json > changed_file_content.txt
 
       - name: Get the PR author username
         id: pr_user
         run: |
-          PR_USER=${{ github.event.pull_request.user.login }}
-          echo "The PR was created by $PR_USER"
-          echo "::set-output name=pr_user::$PR_USER"
+          branch_name=${{ github.event.pull_request.user.login }}
+          echo "PR_AUTHOR=$branch_name" >> $GITHUB_OUTPUT
+          echo "The PR was created by $branch_name"
 
-      - name: Pass the diff and file content to Python validation
+      - name: Pass the diff and file content to Python validation and send request
         run: |
-          python validate_pixel_update.py changes.txt changed_file_content.txt ${{ steps.pr_user.outputs.pr_user }}
-      
-      - name: Close PR on failure
-        if: failure() # This will only run if any of the previous steps fail
+          python validate_pixel_update.py changes.txt changed_file_content.txt ${{ github.event.pull_request.user.login }} https://amplace.co/api/update_pixel
+
+  auto_merge_pr:
+    needs: audit
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR_AUTHOR: ${{ needs.audit.outputs.PR_AUTHOR }}
+      PR_NUMBER: ${{ github.event.number }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Create branch if not exists
         run: |
-          PR_NUMBER=${{ github.event.pull_request.number }}
-          REPO=${{ github.repository }}
-          echo "Closing PR #${PR_NUMBER} due to failed tests."
-          
-          # Use GitHub API to close the PR
-          curl -X PATCH -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -d '{"state":"closed"}' \
-            "https://api.github.com/repos/${REPO}/pulls/${PR_NUMBER}"
-            
+          branch_name=$PR_AUTHOR
+          if git ls-remote --heads origin $branch_name | grep -sw $branch_name; then
+            echo "Branch $branch_name already exists."
+          else
+            echo "Branch $branch_name does not exist. Creating new branch..."
+            git checkout -b $branch_name
+            git push --set-upstream origin $branch_name
+          fi
+
+      - name: Change base branch of PR
+        run: gh pr edit $PR_NUMBER --base $PR_AUTHOR
+
+      - name: Merge PR
+        run: gh pr merge $PR_NUMBER --merge
+
+      - name: Close PR if previous steps failed
+        if: failure()
+        run: |
+          echo "Previous steps failed. Closing PR #$PR_NUMBER"
+          gh pr close $PR_NUMBER --delete-branch
