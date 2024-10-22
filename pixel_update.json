@@ -1,15 +1,27 @@
 [
-  { "x": "135", "y": "15", "rgb": "#ffffff" },
-  { "x": "136", "y": "15", "rgb": "#0000ff" },
-  { "x": "137", "y": "15", "rgb": "#4aa926" },
-  { "x": "138", "y": "15", "rgb": "#ff0000" },
-  { "x": "139", "y": "15", "rgb": "#ff1d8e" }
-];
-
-// Using a for loop to set the entire screen to black
-for (let i = 0; i < pixels.length; i++) {
-  pixels[i].rgb = "#000000";
-}
-
-console.log(pixels);
-
+  {
+    "x": "110",
+    "y": "76",
+    "rgb": "#df0c0c"
+  },
+  {
+    "x": "111",
+    "y": "76",
+    "rgb": "#ff0000"
+  },
+  {
+    "x": "112",
+    "y": "76",
+    "rgb": "#f00909"
+  },
+  {
+    "x": "113",
+    "y": "76",
+    "rgb": "#e60505"
+  },
+  {
+    "x": "114",
+    "y": "76",
+    "rgb": "#f10e0e"
+  }
+]
