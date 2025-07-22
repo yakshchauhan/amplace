@@ -17,7 +17,7 @@ const Home = () => {
 
     const fetchPixelData = async () => {
         try {
-            const response = await fetch('http://127.0.0.1:5000/api/get_pixel');
+            const response = await fetch('https://amplacebackend.amfoss.in/api/get_pixel');
             const data = await response.json();
             console.log(data);
             if (data.success) {
@@ -38,7 +38,7 @@ const Home = () => {
 
     const fetchLeaderboardData = async () => {
         try {
-            const response = await fetch('http://127.0.0.1:5000//api/get_user_details');
+            const response = await fetch('https://amplacebackend.amfoss.in/api/get_user_details');
             const data = await response.json();
             console.log(data);
             if (data.success) {
